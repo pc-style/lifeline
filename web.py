@@ -1,5 +1,5 @@
 """
-LifeLine Web - FastAPI backend with WebSocket chat.
+LifeLine Web - FastAPI backend with WebSocket chat and session management.
 """
 
 import asyncio
@@ -7,19 +7,20 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from agents import Runner, SQLiteSession
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from lifeline.agent import create_lifeline_agent
 from lifeline.database import TimelineDatabase
+from lifeline.web_database import WebDatabase, UserPreferences, ChatSession
 
 # Initialize FastAPI app
-app = FastAPI(title="LifeLine Web API", version="0.1.0")
+app = FastAPI(title="LifeLine Web API", version="0.2.0")
 
 # CORS middleware for Next.js dev server
 app.add_middleware(
@@ -35,18 +36,20 @@ app.add_middleware(
 
 # Configuration
 DB_PATH = "data/lifeline.db"
-WEB_SESSION_ID = "lifeline_web_user"
+WEB_DB_PATH = "data/lifeline_web.db"
 
 # Ensure data directory exists
 Path("data").mkdir(exist_ok=True)
 
-# Initialize database
+# Initialize databases
 db = TimelineDatabase(DB_PATH)
+web_db = WebDatabase(WEB_DB_PATH)
 
 
 # Request/Response models
 class ChatMessage(BaseModel):
     message: str
+    session_id: Optional[int] = None
     model: str = "gpt-4o"
 
 
@@ -55,13 +58,141 @@ class ChatResponse(BaseModel):
     timestamp: str
 
 
+class OnboardingData(BaseModel):
+    name: str
+    theme: str = "system"
+
+
+class PreferencesUpdate(BaseModel):
+    name: Optional[str] = None
+    theme: Optional[str] = None
+    model: Optional[str] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+
+
 # REST API Endpoints
 @app.get("/")
 async def root():
     """Health check endpoint."""
-    return {"status": "ok", "service": "LifeLine Web API", "version": "0.1.0"}
+    return {"status": "ok", "service": "LifeLine Web API", "version": "0.2.0"}
 
 
+# User Preferences Endpoints
+@app.get("/api/preferences")
+async def get_preferences(user_id: str = "default_user"):
+    """Get user preferences."""
+    try:
+        prefs = web_db.get_user_preferences(user_id)
+        if not prefs:
+            # Create default preferences
+            prefs = UserPreferences(user_id=user_id)
+            prefs = web_db.create_user_preferences(prefs)
+        return prefs.model_dump()
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/preferences")
+async def update_preferences(
+    prefs_update: PreferencesUpdate, user_id: str = "default_user"
+):
+    """Update user preferences."""
+    try:
+        updates = {k: v for k, v in prefs_update.model_dump().items() if v is not None}
+        prefs = web_db.update_user_preferences(user_id, **updates)
+        return prefs.model_dump() if prefs else {"error": "Failed to update"}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/onboarding")
+async def complete_onboarding(data: OnboardingData, user_id: str = "default_user"):
+    """Complete user onboarding."""
+    try:
+        prefs = web_db.update_user_preferences(
+            user_id, name=data.name, theme=data.theme, onboarded=True
+        )
+        return prefs.model_dump() if prefs else {"error": "Failed to onboard"}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+# Chat Session Endpoints
+@app.post("/api/sessions")
+async def create_session(user_id: str = "default_user", title: str = "New Chat"):
+    """Create a new chat session."""
+    try:
+        session_id = web_db.create_session(user_id, title)
+        session = web_db.get_session(session_id)
+        return session.model_dump() if session else {"error": "Failed to create session"}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/sessions")
+async def get_sessions(user_id: str = "default_user", limit: int = 50):
+    """Get all chat sessions for a user."""
+    try:
+        sessions = web_db.get_user_sessions(user_id, limit)
+        return [s.model_dump() for s in sessions]
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/sessions/{session_id}")
+async def get_session(session_id: int):
+    """Get a specific chat session."""
+    try:
+        session = web_db.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return session.model_dump()
+    except HTTPException:
+        raise
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.put("/api/sessions/{session_id}")
+async def update_session(session_id: int, title: str):
+    """Update session title."""
+    try:
+        success = web_db.update_session_title(session_id, title)
+        if not success:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {"success": True, "message": "Session updated"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.delete("/api/sessions/{session_id}")
+async def delete_session(session_id: int):
+    """Delete a chat session."""
+    try:
+        success = web_db.delete_session(session_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {"success": True, "message": "Session deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/sessions/{session_id}/messages")
+async def get_session_messages(session_id: int, limit: Optional[int] = None):
+    """Get messages for a session."""
+    try:
+        messages = web_db.get_session_messages(session_id, limit)
+        return [m.model_dump() for m in messages]
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+# Timeline Stats Endpoints
 @app.get("/api/stats")
 async def get_stats():
     """Get timeline statistics."""
@@ -146,19 +277,26 @@ async def websocket_chat(websocket: WebSocket):
     WebSocket endpoint for real-time chat with LifeLine agent.
 
     Protocol:
-    - Client sends: {"message": "user message", "model": "gpt-4o"}
+    - Client sends: {"message": "user message", "session_id": 1, "model": "gpt-4o"}
     - Server sends: {"type": "thinking"} when agent starts processing
     - Server sends: {"type": "message", "content": "...", "timestamp": "..."} for responses
     - Server sends: {"type": "error", "error": "..."} on errors
     """
     await websocket.accept()
 
-    # Create agent and session
+    # Default configuration
+    user_id = "default_user"
+    current_session_id = None
     model = "gpt-4o"
     agent = create_lifeline_agent(DB_PATH, model=model)
-    session = SQLiteSession(WEB_SESSION_ID, f"data/{WEB_SESSION_ID}.db")
 
     try:
+        # Get or create user preferences
+        prefs = web_db.get_user_preferences(user_id)
+        if not prefs:
+            prefs = UserPreferences(user_id=user_id)
+            web_db.create_user_preferences(prefs)
+
         # Send welcome message
         await websocket.send_json(
             {
@@ -177,30 +315,62 @@ async def websocket_chat(websocket: WebSocket):
             if not user_message:
                 continue
 
+            # Get or create session
+            session_id = message_data.get("session_id")
+            if session_id:
+                current_session_id = session_id
+            elif not current_session_id:
+                # Create new session with smart title
+                current_session_id = web_db.create_session(user_id, "New Chat")
+
             # Update model if specified
             new_model = message_data.get("model")
             if new_model and new_model != model:
                 model = new_model
                 agent = create_lifeline_agent(DB_PATH, model=model)
 
+            # Save user message
+            web_db.add_message(current_session_id, "user", user_message)
+
             # Send thinking indicator
             await websocket.send_json({"type": "thinking"})
 
             try:
+                # Create session for agent (reuse across messages in same session)
+                agent_session = SQLiteSession(
+                    f"web_session_{current_session_id}", f"data/agent_session_{current_session_id}.db"
+                )
+
                 # Run agent
                 result = await Runner.run(
                     agent,
                     user_message,
-                    session=session,
+                    session=agent_session,
                     max_turns=10,
                 )
+
+                response_content = result.final_output
+
+                # Save assistant message
+                web_db.add_message(current_session_id, "assistant", response_content)
+
+                # Auto-generate session title from first message if still "New Chat"
+                session = web_db.get_session(current_session_id)
+                if session and session.title == "New Chat" and session.message_count <= 2:
+                    # Use first few words of user message as title
+                    title_words = user_message.split()[:6]
+                    new_title = " ".join(title_words)
+                    if len(user_message.split()) > 6:
+                        new_title += "..."
+                    web_db.update_session_title(current_session_id, new_title)
 
                 # Send response
                 await websocket.send_json(
                     {
                         "type": "message",
-                        "content": result.final_output,
+                        "content": response_content,
                         "timestamp": datetime.now().isoformat(),
+                        "session_id": current_session_id,
                     }
                 )
 

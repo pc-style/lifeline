@@ -24,18 +24,18 @@ export function ChatMessage({ message }: ChatMessageProps) {
           isUser
             ? "bg-blue-600 text-white"
             : isError
-            ? "bg-red-100 text-red-900 border border-red-300"
-            : "bg-gray-100 text-gray-900"
+            ? "bg-red-100 dark:bg-red-900/20 text-red-900 dark:text-red-200 border border-red-300 dark:border-red-700"
+            : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
         }`}
       >
-        <div className="prose prose-sm max-w-none">
+        <div className="prose prose-sm max-w-none dark:prose-invert">
           <div className="whitespace-pre-wrap break-words">
             {message.content}
           </div>
         </div>
         <div
           className={`text-xs mt-1 ${
-            isUser ? "text-blue-100" : "text-gray-500"
+            isUser ? "text-blue-100" : "text-gray-500 dark:text-gray-400"
           }`}
         >
           {new Date(message.timestamp).toLocaleTimeString()}

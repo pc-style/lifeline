@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AppProvider } from "./context/AppContext";
 
 export const metadata: Metadata = {
   title: "LifeLine - Your Personal Timeline Assistant",
@@ -12,8 +13,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" className="h-full">
+      <body className="h-full">
+        <AppProvider>{children}</AppProvider>
+      </body>
     </html>
   );
 }
