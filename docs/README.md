@@ -41,7 +41,7 @@ Then set up LifeLine:
 
 ```bash
 # Clone or download this repository
-cd agentsdk
+cd lifeline
 
 # Create virtual environment and install dependencies
 uv sync

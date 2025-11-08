@@ -22,6 +22,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from lifeline.agent import create_lifeline_agent
+from lifeline.api_key import ensure_api_key
 from lifeline.database import TimelineDatabase
 
 # Rich console for beautiful output
@@ -598,6 +599,8 @@ async def main_loop():
 async def main():
     """Entry point for LifeLine CLI."""
     try:
+        # Ensure API key is available (prompts if missing/invalid)
+        ensure_api_key()
         await main_loop()
     except Exception as e:
         console.print(f"\n[red]Fatal error: {str(e)}[/red]", file=sys.stderr)

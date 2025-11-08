@@ -47,7 +47,7 @@ Then set up LifeLine:
 
 ```bash
 # Clone or download this repository
-cd agentsdk
+cd lifeline
 
 # Create virtual environment and install dependencies
 uv sync
@@ -104,6 +104,41 @@ python main.py
 # Or use make
 make run
 ```
+
+## Installers & Packaging
+
+### For Users
+
+**Pre-built releases:** Check the [Releases](https://github.com/pc-style/lifeline/releases) section for ready-to-use executables:
+- **macOS**: `LifeLine.dmg` - Double-click to mount, drag to Applications
+- **Windows**: `LifeLine-Windows.zip` - Extract and run `LifeLine.exe`
+- **Linux**: `LifeLine-Linux.tar.gz` - Extract and run `./LifeLine`
+
+### For Developers
+
+- **Tech install (bash):** `./scripts/install_lifeline.sh` - Multiple installation modes:
+  - **Quick install** (`--quick` or `-q`): Installs in current directory, just asks for API key
+  - **Interactive install** (no flag): Customize install directory, create aliases, add to PATH, create shortcuts
+  - **Test mode** (`--test` or `-t`): Install in `/tmp/lifeline-<id>`, auto-run tests, then auto-cleanup
+- **macOS DMG builder:** `./scripts/build_dmg.sh` bundles the CLI with PyInstaller and wraps it in a DMG (requires macOS plus `create-dmg`).
+- **Windows builder:** `./scripts/build_windows.ps1` creates a Windows executable and ZIP archive.
+- **Test scripts:** `./scripts/test_install.sh` validates all build scripts.
+
+### Automated Releases
+
+GitHub Actions automatically build releases when you push a tag:
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+This triggers:
+- ✅ macOS DMG build
+- ✅ Windows executable + ZIP
+- ✅ Linux tarball
+- ✅ Automatic GitHub release with all artifacts
+
+Workflows are in `.github/workflows/` - hack them up for CI or personalized workflows as needed.
 
 ### Example Interactions
 

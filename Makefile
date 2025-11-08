@@ -1,4 +1,4 @@
-.PHONY: help install run web example export test format lint type-check clean
+.PHONY: help install run web example export test format lint type-check clean clean-all
 
 help:
 	@echo "LifeLine - Available Commands"
@@ -14,6 +14,7 @@ help:
 	@echo "  make type-check   - Type check with mypy"
 	@echo "  make quality      - Run all quality checks"
 	@echo "  make clean        - Remove generated files"
+	@echo "  make clean-all    - Remove all artifacts (including .venv)"
 
 install:
 	uv sync
@@ -46,8 +47,25 @@ quality: format lint type-check
 	@echo "All quality checks passed!"
 
 clean:
+	@echo "Cleaning Python artifacts..."
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
 	rm -f data/*.db-journal data/*.db-wal data/*.db-shm
+	@echo "Cleaning build artifacts..."
+	rm -rf build/ 2>/dev/null || true
+	rm -rf dist/ 2>/dev/null || true
+	find . -maxdepth 1 -name "*.spec" -type f -delete 2>/dev/null || true
+	@echo "Cleaning frontend build..."
+	rm -rf web-ui/.next 2>/dev/null || true
+	rm -rf web-ui/.turbo 2>/dev/null || true
+	@echo "Cleaning test installs..."
+	find /tmp -maxdepth 1 -type d -name "lifeline-*" -exec rm -rf {} + 2>/dev/null || true
+	@echo "Clean complete!"
+
+clean-all: clean
+	@echo "Cleaning virtual environment..."
+	rm -rf .venv 2>/dev/null || true
+	rm -f .env 2>/dev/null || true
+	@echo "Deep clean complete!"

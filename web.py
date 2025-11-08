@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from lifeline.agent import create_lifeline_agent
+from lifeline.api_key import ensure_api_key
 from lifeline.database import TimelineDatabase
 from lifeline.web_database import WebDatabase, UserPreferences, ChatSession
 
@@ -44,6 +45,12 @@ Path("data").mkdir(exist_ok=True)
 # Initialize databases
 db = TimelineDatabase(DB_PATH)
 web_db = WebDatabase(WEB_DB_PATH)
+
+
+@app.on_event("startup")
+def startup_event():
+    """Ensure API key is available on startup."""
+    ensure_api_key()
 
 
 # Request/Response models

@@ -12,7 +12,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ```bash
 # Navigate to the project directory
-cd agentsdk
+cd lifeline
 
 # Install dependencies (creates .venv automatically)
 uv sync
@@ -97,7 +97,7 @@ uv run pytest
 
 4. **Use aliases** - Make it easier to run:
    ```bash
-   alias lifeline="cd ~/agentsdk && uv run python main.py"
+   alias lifeline="cd ~/lifeline && uv run python main.py"
    ```
 
 ## Next Steps

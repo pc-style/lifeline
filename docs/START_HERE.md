@@ -6,7 +6,7 @@ Welcome! You now have a beautiful web interface for the LifeLine personal memory
 
 ### Step 1: Install
 ```bash
-cd /Users/pcstyle/agentsdk
+cd lifeline
 uv sync
 ```
 

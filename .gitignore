@@ -75,6 +75,32 @@ dmypy.json
 # Next.js / Web UI
 web-ui/node_modules/
 web-ui/.next/
+web-ui/.turbo/
 web-ui/out/
 web-ui/.vercel
 web-ui/.env*.local
+
+# Build artifacts
+*.spec
+*.icns
+*.iconset/
+build/
+dist/
+*.dmg
+*.zip
+*.tar.gz
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Temporary install/test directories
+/tmp/lifeline-*/
+/tmp/lifeline-source-*/
+
+# Ruff cache
+.ruff_cache/
+
+# Claude AI settings (if needed)
+.claude/

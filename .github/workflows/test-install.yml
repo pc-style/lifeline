@@ -1,0 +1,52 @@
+name: Test Install Script
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test-install-macos:
+    name: Test Install Script (macOS)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test install script
+        run: |
+          chmod +x scripts/install_lifeline.sh
+          scripts/install_lifeline.sh --test
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'test-key-for-ci' }}
+
+      - name: Verify installation
+        run: |
+          source .venv/bin/activate
+          python -c "import lifeline; print('lifeline module OK')"
+          uv run python -c "from lifeline.agent import create_lifeline_agent; print('agent import OK')"
+
+  test-install-linux:
+    name: Test Install Script (Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test install script
+        run: |
+          chmod +x scripts/install_lifeline.sh
+          scripts/install_lifeline.sh --test
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'test-key-for-ci' }}
+
+      - name: Verify installation
+        run: |
+          source .venv/bin/activate
+          python -c "import lifeline; print('lifeline module OK')"
+          uv run python -c "from lifeline.agent import create_lifeline_agent; print('agent import OK')"
+

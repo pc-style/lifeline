@@ -55,9 +55,9 @@ lifeline = "main:main"
 lifeline-mcp = "lifeline.mcp_server:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/lifeline"
-Repository = "https://github.com/yourusername/lifeline"
-Documentation = "https://github.com/yourusername/lifeline#readme"
+Homepage = "https://github.com/pc-style/lifeline"
+Repository = "https://github.com/pc-style/lifeline"
+Documentation = "https://github.com/pc-style/lifeline#readme"
 
 [build-system]
 requires = ["hatchling"]
