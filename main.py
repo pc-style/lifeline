@@ -7,30 +7,28 @@ import asyncio
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 from agents import Runner, SQLiteSession
 from openai import OpenAI
 from prompt_toolkit import PromptSession
-from prompt_toolkit.completion import Completer, Completion
-from prompt_toolkit.history import FileHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.styles import Style
+from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.styles import Style
 from rich.console import Console
-from rich.panel import Panel
 from rich.markdown import Markdown
+from rich.panel import Panel
 from rich.table import Table
 
 from lifeline.agent import create_lifeline_agent
 from lifeline.database import TimelineDatabase
 
-
 # Rich console for beautiful output
 console = Console()
 
 # Cache for available models (fetched from API)
-_available_models_cache: Optional[list[str]] = None
+_available_models_cache: list[str] | None = None
 
 
 async def fetch_available_models() -> list[str]:
@@ -113,12 +111,14 @@ async def fetch_available_models() -> list[str]:
         ]
         return _available_models_cache
 
+
 # Command definitions with aliases and descriptions
 COMMANDS = {
     "/help": {"aliases": ["/h", "help"], "desc": "Show help message"},
     "/quit": {"aliases": ["/q", "/exit", "quit", "exit"], "desc": "Exit LifeLine"},
     "/stats": {"aliases": ["/s", "stats"], "desc": "Show timeline statistics"},
     "/clear": {"aliases": ["/c", "clear"], "desc": "Clear conversation history"},
+    "/cleardb": {"aliases": ["/cleardb"], "desc": "Clear all timeline data (IRREVERSIBLE)"},
     "/categories": {"aliases": ["/cat", "categories"], "desc": "List all categories"},
     "/recent": {"aliases": ["/r", "recent"], "desc": "Show recent events"},
     "/search": {"aliases": ["/find", "search"], "desc": "Search events (usage: /search <query>)"},
@@ -129,7 +129,9 @@ COMMANDS = {
 class CommandCompleter(Completer):
     """Autocomplete completer for LifeLine commands."""
 
-    def __init__(self, db: Optional[TimelineDatabase] = None, available_models: Optional[list[str]] = None):
+    def __init__(
+        self, db: TimelineDatabase | None = None, available_models: list[str] | None = None
+    ):
         self.db = db
         self.available_models = available_models or []
         # Build command list with aliases
@@ -146,7 +148,9 @@ class CommandCompleter(Completer):
         # If starts with /, complete commands
         if text.startswith("/") or not text:
             for cmd in sorted(set(self.commands)):
-                if cmd.startswith(text) or (not text.startswith("/") and cmd.replace("/", "").startswith(text)):
+                if cmd.startswith(text) or (
+                    not text.startswith("/") and cmd.replace("/", "").startswith(text)
+                ):
                     yield Completion(
                         cmd,
                         start_position=-len(text),
@@ -212,6 +216,7 @@ Welcome! I'm here to help you capture, organize, and reflect on the meaningful m
 - `/quit` or `/exit` - Exit LifeLine
 - `/stats` or `/s` - Show timeline statistics
 - `/clear` or `/c` - Clear conversation history (keeps timeline data)
+- `/cleardb` - Clear all timeline data (IRREVERSIBLE)
 - `/categories` or `/cat` - List all categories
 - `/recent` or `/r` - Show recent events
 - `/search <query>` or `/find <query>` - Search events
@@ -258,7 +263,9 @@ def print_categories(db: TimelineDatabase):
     stats = db.get_category_stats()
 
     if not categories:
-        console.print("[yellow]No categories found. Start logging events to create categories![/yellow]")
+        console.print(
+            "[yellow]No categories found. Start logging events to create categories![/yellow]"
+        )
         return
 
     table = Table(title="Categories", show_header=True, header_style="bold magenta")
@@ -283,7 +290,9 @@ def print_recent(db: TimelineDatabase, limit: int = 10):
         console.print("[yellow]No events found. Start logging memories![/yellow]")
         return
 
-    table = Table(title=f"Recent Events (last {limit})", show_header=True, header_style="bold magenta")
+    table = Table(
+        title=f"Recent Events (last {limit})", show_header=True, header_style="bold magenta"
+    )
     table.add_column("Date", style="cyan", no_wrap=True)
     table.add_column("Title", style="white")
     table.add_column("Category", style="green", no_wrap=True)
@@ -309,7 +318,7 @@ def print_models(current_model: str, available_models: list[str]):
     console.print("\n[dim]You can also use custom fine-tuned models by name[/dim]")
 
 
-def find_command(input_text: str) -> Optional[str]:
+def find_command(input_text: str) -> str | None:
     """Find command from input, handling aliases and typos."""
     input_lower = input_text.lower().strip()
 
@@ -331,7 +340,7 @@ def find_command(input_text: str) -> Optional[str]:
     return None
 
 
-def suggest_command(input_text: str) -> Optional[str]:
+def suggest_command(input_text: str) -> str | None:
     """Suggest similar command if input doesn't match."""
     input_lower = input_text.lower().strip()
 
@@ -430,7 +439,26 @@ async def main_loop():
             elif cmd == "/clear":
                 # Clear conversation history (not timeline data)
                 session = SQLiteSession(SESSION_ID, f"data/{SESSION_ID}.db")
-                console.print("[yellow]Conversation history cleared. Timeline data preserved.[/yellow]")
+                console.print(
+                    "[yellow]Conversation history cleared. Timeline data preserved.[/yellow]"
+                )
+                continue
+
+            elif cmd == "/cleardb":
+                # Clear all timeline data with confirmation
+                console.print(
+                    "[red]⚠️  WARNING: This will permanently delete ALL timeline data![/red]"
+                )
+                response = await session_prompt.prompt_async(
+                    HTML("<b><style fg='red'>Are you sure? Type 'yes' to confirm: </style></b>")
+                )
+                if response.lower().strip() == "yes":
+                    deleted_count = db.clear_all_events()
+                    console.print(
+                        f"[green]✓ Deleted {deleted_count} event(s). Timeline data cleared.[/green]"
+                    )
+                else:
+                    console.print("[yellow]Cancelled. Timeline data preserved.[/yellow]")
                 continue
 
             elif cmd == "/categories":
@@ -466,7 +494,7 @@ async def main_loop():
                     max_turns=5,
                 )
 
-                console.print(f"\n[bold magenta]LifeLine:[/bold magenta]")
+                console.print("\n[bold magenta]LifeLine:[/bold magenta]")
                 console.print(Markdown(result.final_output))
                 continue
 
@@ -496,8 +524,12 @@ async def main_loop():
                         or new_model.startswith("ft:")
                         or ":" in new_model
                     ):
-                        console.print(f"[yellow]Warning: '{new_model}' is not in the available models list[/yellow]")
-                        console.print("[dim]You can still use it if it's a custom fine-tuned model[/dim]")
+                        console.print(
+                            f"[yellow]Warning: '{new_model}' is not in the available models list[/yellow]"
+                        )
+                        console.print(
+                            "[dim]You can still use it if it's a custom fine-tuned model[/dim]"
+                        )
                         response = await session_prompt.prompt_async(
                             HTML("<b><style fg='yellow'>Continue anyway? (y/n)</style></b>: ")
                         )
@@ -526,7 +558,9 @@ async def main_loop():
                 suggestion = suggest_command(user_input)
                 if suggestion:
                     console.print(f"[yellow]Unknown command: {user_input}[/yellow]")
-                    console.print(f"[dim]Did you mean: {suggestion}? (Type /help for all commands)[/dim]")
+                    console.print(
+                        f"[dim]Did you mean: {suggestion}? (Type /help for all commands)[/dim]"
+                    )
                 else:
                     console.print(f"[yellow]Unknown command: {user_input}[/yellow]")
                     console.print("[dim]Type /help to see all available commands[/dim]")
@@ -544,7 +578,7 @@ async def main_loop():
             )
 
             # Display response
-            console.print(f"\n[bold magenta]LifeLine:[/bold magenta]")
+            console.print("\n[bold magenta]LifeLine:[/bold magenta]")
             console.print(Markdown(result.final_output))
 
         except KeyboardInterrupt:
@@ -571,11 +605,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    # Check Python version
-    if sys.version_info < (3, 10):
-        console.print("[red]Error: LifeLine requires Python 3.10 or higher[/red]")
-        sys.exit(1)
-
     # Run the async main function
     try:
         asyncio.run(main())

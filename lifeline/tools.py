@@ -3,17 +3,19 @@ Function tools for LifeLine agent timeline operations.
 """
 
 from datetime import datetime, timedelta
-from typing import Annotated, Any
+from typing import Annotated
+
 from agents import function_tool
 
 from .database import TimelineDatabase
-from .models import TimelineEvent, EventQuery
+from .models import EventQuery, TimelineEvent
 
 # Optional web search support
 try:
     import os
+
     WEB_SEARCH_AVAILABLE = bool(os.getenv("OPENAI_API_KEY"))
-except:
+except Exception:
     WEB_SEARCH_AVAILABLE = False
 
 
@@ -77,7 +79,9 @@ def calculate_future_date(days_from_now: Annotated[int, "Number of days from tod
 
 @function_tool
 def parse_relative_date(
-    relative_term: Annotated[str, "Relative date like 'today', 'yesterday', 'last week', 'two days ago'"]
+    relative_term: Annotated[
+        str, "Relative date like 'today', 'yesterday', 'last week', 'two days ago'"
+    ],
 ) -> str:
     """
     Convert relative date terms to ISO format timestamps.
@@ -104,13 +108,13 @@ def parse_relative_date(
     elif "days ago" in term:
         # Extract number of days
         try:
-            days = int(''.join(filter(str.isdigit, term)))
+            days = int("".join(filter(str.isdigit, term)))
             return (now - timedelta(days=days)).date().isoformat()
         except ValueError:
             return now.date().isoformat()
     elif "weeks ago" in term:
         try:
-            weeks = int(''.join(filter(str.isdigit, term)))
+            weeks = int("".join(filter(str.isdigit, term)))
             return (now - timedelta(weeks=weeks)).date().isoformat()
         except ValueError:
             return now.date().isoformat()
@@ -123,8 +127,12 @@ def parse_relative_date(
 def log_event(
     title: Annotated[str, "Brief title of the event"],
     description: Annotated[str, "Detailed description of what happened"],
-    category: Annotated[str, "Category: career, travel, health, personal, learning, social, milestone, etc."] = "personal",
-    timestamp: Annotated[str, "ISO format timestamp (use get_current_datetime or parse_relative_date)"] = None,
+    category: Annotated[
+        str, "Category: career, travel, health, personal, learning, social, milestone, etc."
+    ] = "personal",
+    timestamp: Annotated[
+        str, "ISO format timestamp (use get_current_datetime or parse_relative_date)"
+    ] = None,
     tags: Annotated[list[str], "Optional tags for the event"] = None,
 ) -> str:
     """
@@ -267,7 +275,9 @@ def search_events(
 
 
 @function_tool
-def get_recent_events(limit: Annotated[int, "Number of recent events to retrieve"] = 10) -> list[dict]:
+def get_recent_events(
+    limit: Annotated[int, "Number of recent events to retrieve"] = 10,
+) -> list[dict]:
     """
     Get the most recent timeline events.
 
@@ -347,7 +357,10 @@ def get_timeline_statistics() -> dict:
 def set_reminder(
     title: Annotated[str, "Brief title for the reminder"],
     description: Annotated[str, "What needs to be done"],
-    due_date: Annotated[str, "ISO format date when reminder is due (YYYY-MM-DD). Use calculate_future_date tool first!"],
+    due_date: Annotated[
+        str,
+        "ISO format date when reminder is due (YYYY-MM-DD). Use calculate_future_date tool first!",
+    ],
     tags: Annotated[list[str], "Optional tags"] = None,
 ) -> str:
     """
@@ -383,7 +396,9 @@ def set_reminder(
 
 
 @function_tool
-def get_upcoming_reminders(days_ahead: Annotated[int, "Number of days to look ahead"] = 30) -> list[dict]:
+def get_upcoming_reminders(
+    days_ahead: Annotated[int, "Number of days to look ahead"] = 30,
+) -> list[dict]:
     """
     Get all upcoming reminders within the next X days.
 

@@ -3,8 +3,8 @@ LifeLine agent definition and configuration.
 """
 
 from agents import Agent, ModelSettings
-from .tools import ALL_TOOLS, init_tools
 
+from .tools import ALL_TOOLS, init_tools
 
 LIFELINE_INSTRUCTIONS = """You are LifeLine, a warm and thoughtful personal memory and timeline assistant.
 

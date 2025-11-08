@@ -15,11 +15,9 @@ Model Context Protocol specification.
 """
 
 from typing import Any
-from pathlib import Path
 
 from .database import TimelineDatabase
 from .models import EventQuery
-
 
 # Example: Using LifeLine with MCP servers (filesystem, git, etc.)
 EXAMPLE_MCP_INTEGRATION = """

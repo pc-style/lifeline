@@ -6,7 +6,9 @@ in your own Python applications.
 """
 
 import asyncio
+
 from agents import Runner, SQLiteSession
+
 from lifeline.agent import create_lifeline_agent
 from lifeline.database import TimelineDatabase
 
@@ -118,7 +120,6 @@ async def example_programmatic_logging():
     print("\n=== Programmatic Logging Example ===\n")
 
     from lifeline.models import TimelineEvent
-    from datetime import datetime
 
     db = TimelineDatabase("data/example_timeline.db")
 

@@ -2,13 +2,10 @@
 SQLite database operations for LifeLine timeline events.
 """
 
-import sqlite3
 import json
-from datetime import datetime
-from typing import Optional
-from pathlib import Path
+import sqlite3
 
-from .models import TimelineEvent, EventQuery, CategoryStats
+from .models import CategoryStats, EventQuery, TimelineEvent
 
 
 class TimelineDatabase:
@@ -27,7 +24,8 @@ class TimelineDatabase:
     def _ensure_database(self):
         """Create database and tables if they don't exist."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     title TEXT NOT NULL,
@@ -37,14 +35,19 @@ class TimelineDatabase:
                     tags TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
             # Create index for faster queries
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_category ON events(category)
-            """)
-            conn.execute("""
+            """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_timestamp ON events(timestamp)
-            """)
+            """
+            )
             conn.commit()
 
     def insert_event(self, event: TimelineEvent) -> int:
@@ -151,7 +154,8 @@ class TimelineDatabase:
         """Get statistics for each category."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 SELECT
                     category,
                     COUNT(*) as count,
@@ -160,7 +164,8 @@ class TimelineDatabase:
                 FROM events
                 GROUP BY category
                 ORDER BY count DESC
-            """)
+            """
+            )
             stats = []
             for row in cursor.fetchall():
                 stats.append(
@@ -194,7 +199,7 @@ class TimelineDatabase:
             conn.commit()
             return cursor.rowcount > 0
 
-    def get_date_range(self) -> Optional[tuple[str, str]]:
+    def get_date_range(self) -> tuple[str, str] | None:
         """Get the earliest and latest event timestamps."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute("SELECT MIN(timestamp), MAX(timestamp) FROM events")
@@ -202,3 +207,15 @@ class TimelineDatabase:
             if result[0] and result[1]:
                 return (result[0], result[1])
             return None
+
+    def clear_all_events(self) -> int:
+        """
+        Clear all events from the database.
+
+        Returns:
+            Number of events deleted
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("DELETE FROM events")
+            conn.commit()
+            return cursor.rowcount
