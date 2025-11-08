@@ -66,6 +66,15 @@ jobs:
           "$env:USERPROFILE\.cargo\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
           "$env:USERPROFILE\.local\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
+      - name: Sync project dependencies (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: uv sync --frozen
+
+      - name: Sync project dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: uv sync --frozen
+
       - name: Install PyInstaller (macOS/Linux)
         if: runner.os != 'Windows'
         run: uv pip install pyinstaller
