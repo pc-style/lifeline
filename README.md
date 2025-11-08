@@ -144,6 +144,29 @@ bash scripts/install_app.sh
 ```
 Builds and installs a standalone `.app` bundle to `/Applications/LifeLine.app`.
 
+### Building Executables
+
+LifeLine can be compiled into standalone executables for easy distribution:
+
+```bash
+# Build for current platform
+make build
+
+# Or build for specific platform
+make build-linux      # Creates Linux tarball
+make build-windows    # Creates Windows ZIP
+make build-macos      # Creates macOS DMG
+```
+
+**Output locations:**
+- Linux: `dist/LifeLine-Linux.tar.gz`
+- Windows: `dist/LifeLine-Windows.zip`
+- macOS: `dist/LifeLine.dmg`
+
+The executables include both CLI and web server. Data is stored in `~/.lifeline/` (or `%USERPROFILE%\.lifeline\` on Windows) when running from executables.
+
+See [BUILD.md](BUILD.md) for detailed build instructions and troubleshooting.
+
 ### For Developers
 
 **Installation modes:**
@@ -161,11 +184,17 @@ Builds and installs a standalone `.app` bundle to `/Applications/LifeLine.app`.
   ```
 
 **Build scripts:**
-- **macOS DMG builder:** `./scripts/build_dmg.sh` - Bundles CLI with PyInstaller and creates DMG
+- **macOS DMG builder:** `./scripts/build_dmg.sh` - Bundles executables with PyInstaller and creates DMG
 - **macOS App installer:** `./scripts/install_app.sh` - Builds and installs `.app` bundle
-- **Windows builder:** `./scripts/build_windows.ps1` - Creates Windows executable and ZIP archive
+- **Windows builder:** `./scripts/build_windows.ps1` - Creates Windows executables and ZIP archive
 - **Linux builder:** `./scripts/build_linux.sh` - Creates Linux tarball
 - **Test scripts:** `./scripts/test_install.sh` - Validates all build scripts
+
+**PyInstaller spec files:**
+- `lifeline-cli.spec` - Configuration for CLI executable
+- `lifeline-web.spec` - Configuration for web server executable
+
+These spec files control what gets bundled. Customize them to add/remove modules or data files.
 
 ### Example Interactions
 

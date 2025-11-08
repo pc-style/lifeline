@@ -36,13 +36,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configuration - detect if running from app bundle
+# Configuration - detect if running from executable
 def get_data_dir():
-    """Get data directory - use ~/.lifeline if running from app bundle, else ./data"""
-    # simplest check: if cwd is in Contents/Resources, we're in app bundle
+    """Get data directory - use ~/.lifeline if running from executable, else ./data"""
+    # check if running from PyInstaller bundle
+    if getattr(sys, 'frozen', False):
+        # running from executable
+        data_dir = Path.home() / ".lifeline"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        return data_dir
+    
+    # also check macOS app bundle (Contents/Resources)
     try:
         cwd = Path.cwd().resolve()
-        # check if current directory path contains Contents/Resources
         if 'Contents' in cwd.parts and 'Resources' in cwd.parts:
             data_dir = Path.home() / ".lifeline"
             data_dir.mkdir(parents=True, exist_ok=True)
@@ -50,7 +56,6 @@ def get_data_dir():
     except Exception:
         pass
     
-    # also check executable path (for PyInstaller bundles)
     try:
         if sys.executable:
             exe_path = Path(sys.executable).resolve()
@@ -376,8 +381,9 @@ async def websocket_chat(websocket: WebSocket):
 
             try:
                 # Create session for agent (reuse across messages in same session)
+                agent_session_db_path = str(DATA_DIR / f"agent_session_{current_session_id}.db")
                 agent_session = SQLiteSession(
-                    f"web_session_{current_session_id}", f"data/agent_session_{current_session_id}.db"
+                    f"web_session_{current_session_id}", agent_session_db_path
                 )
 
                 # Run agent

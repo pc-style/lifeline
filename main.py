@@ -354,15 +354,27 @@ def suggest_command(input_text: str) -> str | None:
     return None
 
 
+def get_data_dir():
+    """Get data directory - use ~/.lifeline if running from executable, else ./data"""
+    # check if running from PyInstaller bundle
+    if getattr(sys, 'frozen', False):
+        # running from executable
+        data_dir = Path.home() / ".lifeline"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        return data_dir
+    # running from source
+    data_dir = Path("data")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+
 async def main_loop():
     """Main conversation loop with enhanced CLI."""
-    # Configuration
-    DB_PATH = "data/lifeline.db"
+    # Configuration - handle executable paths
+    data_dir = get_data_dir()
+    DB_PATH = str(data_dir / "lifeline.db")
     SESSION_ID = "lifeline_user"
-    HISTORY_FILE = Path("data/.lifeline_history")
-
-    # Ensure data directory exists
-    Path("data").mkdir(exist_ok=True)
+    HISTORY_FILE = data_dir / ".lifeline_history"
 
     # Initialize database
     db = TimelineDatabase(DB_PATH)
@@ -379,7 +391,8 @@ async def main_loop():
     )
 
     # Create persistent session
-    session = SQLiteSession(SESSION_ID, f"data/{SESSION_ID}.db")
+    session_db_path = str(data_dir / f"{SESSION_ID}.db")
+    session = SQLiteSession(SESSION_ID, session_db_path)
 
     # Fetch available models from API
     console.print("[dim]Fetching available models from OpenAI API...[/dim]")
@@ -439,7 +452,8 @@ async def main_loop():
 
             elif cmd == "/clear":
                 # Clear conversation history (not timeline data)
-                session = SQLiteSession(SESSION_ID, f"data/{SESSION_ID}.db")
+                session_db_path = str(data_dir / f"{SESSION_ID}.db")
+                session = SQLiteSession(SESSION_ID, session_db_path)
                 console.print(
                     "[yellow]Conversation history cleared. Timeline data preserved.[/yellow]"
                 )

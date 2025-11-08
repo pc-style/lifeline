@@ -43,20 +43,28 @@ try {
     }
 }
 
-# build binary
+# build binaries
 Write-Host "`n> bundling CLI with pyinstaller (może chwilę zająć)..."
-New-Item -ItemType Directory -Force -Path "build" | Out-Null
+New-Item -ItemType Directory -Force -Path "build", "dist" | Out-Null
 
 uv run pyinstaller `
     --clean `
     --noconfirm `
-    --onefile `
-    --name lifeline-cli `
-    --add-data "lifeline;lifeline" `
-    main.py
+    lifeline-cli.spec
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "fatal: pyinstaller build failed"
+    Write-Host "fatal: CLI build failed"
+    exit 1
+}
+
+Write-Host "`n> bundling web server with pyinstaller..."
+uv run pyinstaller `
+    --clean `
+    --noconfirm `
+    lifeline-web.spec
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "fatal: Web server build failed"
     exit 1
 }
 
@@ -66,16 +74,23 @@ $appDir = "$stageDir\LifeLine"
 Remove-Item -Recurse -Force $stageDir -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $appDir | Out-Null
 
-Copy-Item "dist\lifeline-cli.exe" "$appDir\LifeLine.exe"
+Copy-Item "dist\lifeline-cli.exe" "$appDir\lifeline-cli.exe"
+Copy-Item "dist\lifeline-web.exe" "$appDir\lifeline-web.exe"
 
 @"
-LifeLine CLI (Windows)
-======================
+LifeLine (Windows)
+==================
 
+QUICK START - CLI:
 1. Open Command Prompt or PowerShell
 2. cd to wherever you extracted this folder
-3. .\LifeLine.exe
+3. .\lifeline-cli.exe
 
+QUICK START - Web UI:
+1. .\lifeline-web.exe
+2. Open http://localhost:8000 in your browser
+
+SETUP:
 First launch will prompt you for your OpenAI API key if not set.
 You can also set it manually:
   set OPENAI_API_KEY=sk-...
@@ -84,10 +99,10 @@ You can also set it manually:
   # or create .env file in this directory with:
   # OPENAI_API_KEY=sk-...
 
-Tip: timeline data ląduje w .\data (auto tworzone).
+Tip: timeline data ląduje w %USERPROFILE%\.lifeline (auto tworzone).
 
 Have fun, ugh.
-"@ | Out-File -FilePath "$appDir\READ_ME_FIRST.txt" -Encoding UTF8
+"@ | Out-File -FilePath "$appDir\README.txt" -Encoding UTF8
 
 # create zip
 $zipName = "LifeLine-Windows.zip"

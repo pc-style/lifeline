@@ -1,4 +1,4 @@
-.PHONY: help install run web example export test format lint type-check clean clean-all
+.PHONY: help install run web example export test format lint type-check clean clean-all build build-linux build-windows build-macos build-frontend
 
 help:
 	@echo "LifeLine - Available Commands"
@@ -13,6 +13,11 @@ help:
 	@echo "  make lint         - Lint code with Ruff"
 	@echo "  make type-check   - Type check with mypy"
 	@echo "  make quality      - Run all quality checks"
+	@echo "  make build        - Build executables for current platform"
+	@echo "  make build-linux  - Build Linux executables"
+	@echo "  make build-windows - Build Windows executables"
+	@echo "  make build-macos  - Build macOS DMG"
+	@echo "  make build-frontend - Build Next.js frontend"
 	@echo "  make clean        - Remove generated files"
 	@echo "  make clean-all    - Remove all artifacts (including .venv)"
 
@@ -71,3 +76,38 @@ clean-all: clean
 	rm -rf .venv 2>/dev/null || true
 	rm -f .env 2>/dev/null || true
 	@echo "Deep clean complete!"
+
+# Build targets
+build-frontend:
+	@echo "Building Next.js frontend..."
+	cd web-ui && \
+	if command -v pnpm >/dev/null 2>&1; then \
+		pnpm install && pnpm build; \
+	elif command -v npm >/dev/null 2>&1; then \
+		npm install && npm run build; \
+	else \
+		echo "Error: npm or pnpm required for frontend build"; exit 1; \
+	fi
+
+build-linux:
+	@echo "Building Linux executables..."
+	@bash scripts/build_linux.sh
+
+build-windows:
+	@echo "Building Windows executables..."
+	@powershell -ExecutionPolicy Bypass -File scripts/build_windows.ps1
+
+build-macos:
+	@echo "Building macOS DMG..."
+	@bash scripts/build_dmg.sh
+
+build:
+	@echo "Building for current platform..."
+	@if [ "$$(uname -s)" = "Linux" ]; then \
+		$(MAKE) build-linux; \
+	elif [ "$$(uname -s)" = "Darwin" ]; then \
+		$(MAKE) build-macos; \
+	else \
+		echo "Error: Unknown platform. Use make build-linux, build-windows, or build-macos"; \
+		exit 1; \
+	fi

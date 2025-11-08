@@ -77,7 +77,7 @@ convert_icon() {
 }
 
 build_binaries() {
-  mkdir -p build
+  mkdir -p build dist
   printf "\n> checking pyinstaller...\n"
   if ! uv run python -c "import PyInstaller" 2>/dev/null; then
     printf "installing pyinstaller...\n"
@@ -88,19 +88,13 @@ build_binaries() {
   uv run pyinstaller \
     --clean \
     --noconfirm \
-    --onefile \
-    --name lifeline-cli \
-    --add-data "lifeline:lifeline" \
-    main.py || die "CLI build failed"
+    lifeline-cli.spec || die "CLI build failed"
 
   printf "\n> bundling web server with pyinstaller...\n"
   uv run pyinstaller \
     --clean \
     --noconfirm \
-    --onefile \
-    --name lifeline-web \
-    --add-data "lifeline:lifeline" \
-    web.py || die "web server build failed"
+    lifeline-web.spec || die "web server build failed"
 }
 
 build_frontend() {

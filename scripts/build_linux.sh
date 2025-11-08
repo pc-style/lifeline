@@ -40,7 +40,7 @@ ensure_uv() {
 }
 
 build_binary() {
-  mkdir -p build
+  mkdir -p build dist
   printf "\n> checking pyinstaller...\n"
   if ! uv run python -c "import PyInstaller" 2>/dev/null; then
     printf "installing pyinstaller...\n"
@@ -51,10 +51,13 @@ build_binary() {
   uv run pyinstaller \
     --clean \
     --noconfirm \
-    --onefile \
-    --name lifeline-cli \
-    --add-data "lifeline:lifeline" \
-    main.py || die "CLI build failed"
+    lifeline-cli.spec || die "CLI build failed"
+  
+  printf "\n> bundling web server with pyinstaller...\n"
+  uv run pyinstaller \
+    --clean \
+    --noconfirm \
+    lifeline-web.spec || die "Web server build failed"
 }
 
 stage_payload() {
@@ -64,18 +67,23 @@ stage_payload() {
   rm -rf "$stage_dir"
   mkdir -p "$app_dir"
 
-  # copy executable
-  cp dist/lifeline-cli "$app_dir/LifeLine"
-  chmod +x "$app_dir/LifeLine"
+  # copy executables
+  cp dist/lifeline-cli "$app_dir/lifeline-cli"
+  cp dist/lifeline-web "$app_dir/lifeline-web"
+  chmod +x "$app_dir/lifeline-cli"
+  chmod +x "$app_dir/lifeline-web"
 
   # create README
-  cat > "$app_dir/READ_ME_FIRST.txt" <<'EOF'
-LifeLine CLI (Linux)
-=====================
+  cat > "$app_dir/README.txt" <<'EOF'
+LifeLine (Linux)
+=================
 
-QUICK START:
-1. chmod +x LifeLine
-2. ./LifeLine
+QUICK START - CLI:
+  ./lifeline-cli
+
+QUICK START - Web UI:
+  ./lifeline-web
+  Then open http://localhost:8000 in your browser
 
 SETUP:
 First launch będzie narzekał jeśli nie ustawisz OPENAI_API_KEY.
@@ -85,12 +93,12 @@ Set it like:
 Or create .env file in this directory:
   echo "OPENAI_API_KEY=sk-..." > .env
 
-Tip: timeline data ląduje w ./data (auto tworzone).
+Tip: timeline data ląduje w ~/.lifeline (auto tworzone).
 
 Have fun, ugh.
 EOF
 
-  # create launcher script
+  # create launcher scripts
   cat > "$app_dir/lifeline" <<'LAUNCHER'
 #!/usr/bin/env bash
 # LifeLine CLI launcher
@@ -105,10 +113,28 @@ if [ -f "$APP_DIR/.env" ]; then
   set +a
 fi
 
-exec "$APP_DIR/LifeLine" "$@"
+exec "$APP_DIR/lifeline-cli" "$@"
 LAUNCHER
 
+  cat > "$app_dir/lifeline-web" <<'WEB_LAUNCHER'
+#!/usr/bin/env bash
+# LifeLine Web launcher
+
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$APP_DIR"
+
+# source .env if it exists
+if [ -f "$APP_DIR/.env" ]; then
+  set -a
+  source "$APP_DIR/.env"
+  set +a
+fi
+
+exec "$APP_DIR/lifeline-web" "$@"
+WEB_LAUNCHER
+
   chmod +x "$app_dir/lifeline"
+  chmod +x "$app_dir/lifeline-web"
 }
 
 make_tarball() {
