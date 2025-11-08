@@ -1,18 +1,39 @@
-name: Build Release
+name: Release Builds
 
 on:
   push:
     tags:
-      - 'v*'  # triggers on tags like v0.1.0, v1.0.0, etc.
-  workflow_dispatch:  # manual trigger
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  build-macos:
-    name: Build macOS DMG
-    runs-on: macos-latest
-    
+  build:
+    name: Build ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-13
+            label: macOS DMG
+            artifact_name: lifeline-macos-dmg
+            artifact_path: dist/LifeLine.dmg
+            build_script: scripts/build_dmg.sh
+          - os: windows-latest
+            label: Windows ZIP
+            artifact_name: lifeline-windows-zip
+            artifact_path: dist/LifeLine-Windows.zip
+            build_script: scripts\build_windows.ps1
+          - os: ubuntu-latest
+            label: Linux Tarball
+            artifact_name: lifeline-linux-tar
+            artifact_path: dist/LifeLine-Linux.tar.gz
+            build_script: scripts/build_linux.sh
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -20,181 +41,109 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Node.js (for create-dmg)
+      - name: Set up Node.js (macOS)
+        if: runner.os == 'macOS'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Install create-dmg
+        if: runner.os == 'macOS'
         run: npm install -g create-dmg
 
-      - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-        env:
-          CARGO_HOME: ${{ runner.temp }}/cargo
-          RUSTUP_HOME: ${{ runner.temp }}/rustup
-
-      - name: Add uv to PATH
-        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Install PyInstaller
+      - name: Install uv (macOS/Linux)
+        if: runner.os != 'Windows'
         run: |
-          $HOME/.cargo/bin/uv pip install pyinstaller
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Build macOS DMG
+      - name: Install uv (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          chmod +x scripts/build_dmg.sh
-          scripts/build_dmg.sh
-        env:
-          PATH: ${{ env.PATH }}:$HOME/.cargo/bin
+          Invoke-WebRequest -Uri 'https://astral.sh/uv/install.ps1' -UseBasicParsing | Invoke-Expression
+          "$env:USERPROFILE\.cargo\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          "$env:USERPROFILE\.local\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
-      - name: Upload macOS DMG
+      - name: Install PyInstaller (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: uv pip install pyinstaller
+
+      - name: Install PyInstaller (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: uv pip install pyinstaller
+
+      - name: Build artifact (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x ${{ matrix.build_script }}
+          ${{ matrix.build_script }}
+
+      - name: Build artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+          .\${{ matrix.build_script }}
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lifeline-macos-dmg
-          path: dist/LifeLine.dmg
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
           retention-days: 30
 
-  build-windows:
-    name: Build Windows Executable
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install uv
-        run: powershell -Command "Invoke-WebRequest -Uri 'https://astral.sh/uv/install.ps1' -UseBasicParsing | Invoke-Expression"
-
-      - name: Add uv to PATH
-        run: echo "$env:USERPROFILE\.cargo\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-
-      - name: Install PyInstaller
-        run: |
-          $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
-          uv pip install pyinstaller
-
-      - name: Build Windows executable
-        run: |
-          $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
-          powershell -ExecutionPolicy Bypass -File scripts/build_windows.ps1
-
-      - name: Upload Windows ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: lifeline-windows-zip
-          path: dist/LifeLine-Windows.zip
-          retention-days: 30
-
-  build-linux:
-    name: Build Linux Executable
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-
-      - name: Add uv to PATH
-        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Install PyInstaller
-        run: |
-          $HOME/.cargo/bin/uv pip install pyinstaller
-
-      - name: Build Linux tarball
-        run: |
-          chmod +x scripts/build_linux.sh
-          scripts/build_linux.sh
-        env:
-          PATH: ${{ env.PATH }}:$HOME/.cargo/bin
-
-      - name: Upload Linux archive
-        uses: actions/upload-artifact@v4
-        with:
-          name: lifeline-linux-tar
-          path: dist/LifeLine-Linux.tar.gz
-          retention-days: 30
-
-  create-release:
-    name: Create GitHub Release
-    needs: [build-macos, build-windows, build-linux]
+  release:
+    name: Publish GitHub Release
+    needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download macOS DMG
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: lifeline-macos-dmg
-          path: artifacts/macos
+          pattern: lifeline-*
+          path: artifacts
+          merge-multiple: true
 
-      - name: Download Windows ZIP
-        uses: actions/download-artifact@v4
-        with:
-          name: lifeline-windows-zip
-          path: artifacts/windows
+      - name: Show artifact contents
+        run: ls -R artifacts
 
-      - name: Download Linux archive
-        uses: actions/download-artifact@v4
-        with:
-          name: lifeline-linux-tar
-          path: artifacts/linux
-
-      - name: Extract version from tag
-        id: tag_version
+      - name: Extract version metadata
+        id: version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/macos/LifeLine.dmg
-            artifacts/windows/LifeLine-Windows.zip
-            artifacts/linux/LifeLine-Linux.tar.gz
-          name: Release ${{ steps.tag_version.outputs.tag }}
+            artifacts/LifeLine.dmg
+            artifacts/LifeLine-Windows.zip
+            artifacts/LifeLine-Linux.tar.gz
+          name: LifeLine ${{ steps.version.outputs.tag }}
           body: |
-            ## LifeLine ${{ steps.tag_version.outputs.version }}
-            
+            ## LifeLine ${{ steps.version.outputs.version }}
+
             ### Downloads
-            - **macOS**: `LifeLine.dmg` - Double-click to mount, drag to Applications
-            - **Windows**: `LifeLine-Windows.zip` - Extract and run `LifeLine.exe`
-            - **Linux**: `LifeLine-Linux.tar.gz` - Extract and run `./LifeLine`
-            
+            - macOS: `LifeLine.dmg`
+            - Windows: `LifeLine-Windows.zip`
+            - Linux: `LifeLine-Linux.tar.gz`
+
             ### Quick Start
-            1. Set your OpenAI API key: `export OPENAI_API_KEY="sk-..."`
-            2. Run the executable
-            3. Start logging your life's meaningful moments!
-            
-            ### Installation Script (Technical Users)
-            For developers who want to install from source:
-            ```bash
-            ./scripts/install_lifeline.sh
-            ```
-            
-            See [README.md](README.md) for full documentation.
+            1. Set `OPENAI_API_KEY` (or use the first-run prompt)
+            2. Run the binary for your platform
+            3. Enjoy your personal memory & timeline assistant ✨
+
+            See [README.md](README.md) for more details.
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
