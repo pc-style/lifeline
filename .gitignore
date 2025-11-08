@@ -26,10 +26,6 @@ env/
 ENV/
 .venv
 
-# UV
-.venv/
-uv.lock
-
 # IDEs
 .vscode/
 .idea/
